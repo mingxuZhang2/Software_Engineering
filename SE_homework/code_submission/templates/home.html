@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Home</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f0f8ff;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            max-width: 1200px;
+            margin-bottom: 20px;
+        }
+        .chart-container, .auth-links {
+            text-align: center;
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+            width: 45%;
+        }
+        .chart-container:hover, .auth-links:hover {
+            transform: translateY(-5px);
+        }
+        h1, h2 {
+            color: #333;
+        }
+        a {
+            display: block;
+            margin: 10px auto;
+            padding: 10px 20px;
+            color: #ffffff;
+            background-color: #007BFF;
+            text-decoration: none;
+            border-radius: 5px;
+            transition: background-color 0.3s, transform 0.3s;
+        }
+        a:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="chart-container">
+            <h1>Online Users</h1>
+            <canvas id="onlineUsersChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h1>Submissions Over Time</h1>
+            <canvas id="submissionsChart"></canvas>
+        </div>
+    </div>
+    <div class="auth-links">
+        <h2>Login / Register</h2>
+        <a href="{% url 'login' %}">Login</a>
+        <a href="{% url 'register' %}">Register</a>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Online Users Pie Chart
+        const onlineUsersCtx = document.getElementById('onlineUsersChart').getContext('2d');
+        const onlineUsersChart = new Chart(onlineUsersCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Online Users', 'Registered Users'],
+                datasets: [{
+                    data: [{{ online_users }}, {{ registered_users }}], // Dynamic data replacement
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.2)',
+                        'rgba(255, 206, 86, 0.2)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(tooltipItem) {
+                                return tooltipItem.label + ': ' + tooltipItem.raw;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        const submissionDates = {{ submission_dates|safe }};
+        const submissionCounts = {{ submission_counts|safe }};
+       // alert(submissionDates);
+       // alert(submissionCounts);
+        // Submissions Line Chart
+        const submissionsCtx = document.getElementById('submissionsChart').getContext('2d');
+        const submissionsChart = new Chart(submissionsCtx, {
+            type: 'line',
+            data: {
+                labels: submissionDates, // Dynamic data replacement
+                datasets: [{
+                    label: 'Submissions',
+                    data: submissionCounts, // Dynamic data replacement
+                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1,
+                    fill: true,
+                    tension: 0.4 // Curved lines
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: {
+                        // 使用类别轴，而非时间轴
+                        type: 'category',
+                        title: {
+                            display: true,
+                            text: 'Date'
+                        }
+                    },
+                    y: {
+                        beginAtZero: true,
+                        title: {
+                            display: true,
+                            text: 'Number of Submissions'
+                        }
+                    }
+                }
+            }
+        });
+    });
+    </script>
+</body>
+</html>

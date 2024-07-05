@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit Code and Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, #f0f4f8, #ffffff);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            color: #333;
+            flex-direction: row; /* Adjust body to layout horizontally */
+        }
+        .sidebar {
+            background-color: #ffffff;
+            width: 300px;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            margin-right: 20px; /* Space between sidebar and main content */
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+            padding: 20px;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1000px; /* Adjusted max-width */
+        }
+        .container:hover {
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #ccd0d5;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .form-buttons {
+            grid-column: span 2;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        input[type="submit"], button {
+            background-color: #1a73e8;
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        input[type="submit"]:hover, button:hover {
+            background-color: #155ab6;
+        }
+        .history-item {
+            cursor: pointer;
+            padding: 5px;
+            border: 1px solid #ccc;
+            margin: 5px;
+            border-radius: 4px;
+        }
+
+        .history-item:hover {
+            background-color: #f0f0f0;
+        }
+
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccd0d5;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .conversation {
+            margin-top: 20px;
+            border-top: 1px solid #ccd0d5;
+            padding-top: 10px;
+        }
+        .conversation-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccd0d5;
+            border-radius: 5px;
+            background-color: #f1f1f1;
+            cursor: pointer;
+        }
+        .conversation-item:hover {
+            background-color: #e1e1e1;
+        }
+        .conversation-item:last-child {
+            margin-bottom: 0;
+        }
+        #loading-indicator {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #1a73e8;
+        }
+    </style>
+    <script>
+
+        
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById('generateTestCodeButton').addEventListener('click', generateTestCode);
+            loadHistory();
+        });
+
+        async function generateTestCode() {
+            const codeContent = document.getElementById('code').value;
+            if (!codeContent) {
+                alert('Please enter the code to test.');
+                return;
+            }
+            document.getElementById('loading-indicator').style.display = 'block';
+
+            const response = await fetch('/code/generate_test_code/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({code: codeContent})
+            });
+
+            document.getElementById('loading-indicator').style.display = 'none';
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('test_code').value = data.test_code;
+            } else {
+                const errorText = await response.text();
+                document.getElementById('output').innerText = 'Failed to generate test code: ' + errorText;
+            }
+        }
+
+
+        function saveToHistory() {
+            const code = document.getElementById('code').value;
+            const testCode = document.getElementById('test_code').value;
+            const timestamp = new Date().toLocaleString();  // 使用完整日期和时间
+
+            // 创建历史记录对象
+            const historyEntry = { code, testCode, timestamp };
+
+            // 从 localStorage 获取当前的历史记录，如果没有则初始化为空数组
+            const history = JSON.parse(localStorage.getItem('history')) || [];
+            history.push(historyEntry);  // 添加新记录到数组
+
+            // 更新 localStorage 中的历史记录
+            localStorage.setItem('history', JSON.stringify(history));
+
+            // 更新历史显示
+            loadHistory();
+        }
+
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('history')) || [];
+            history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp)); // 降序排序
+
+            const sidebar = document.querySelector('.sidebar');
+            sidebar.innerHTML = '<h1>History</h1>';  // 清空既有内容并添加标题
+
+            // 遍历历史记录并添加到侧边栏
+            history.forEach((entry, index) => {
+                const item = document.createElement('div');
+                item.textContent = `${entry.timestamp}: ${entry.code.substring(0, 10)}...`;
+                item.className = 'history-item';
+                item.onclick = () => restoreConversation(entry);
+                sidebar.appendChild(item);
+            });
+
+            // 添加清空历史的按钮
+            const clearButton = document.createElement('button');
+            clearButton.textContent = 'Clear History';
+            clearButton.onclick = clearHistory;
+            sidebar.appendChild(clearButton);
+        }
+
+        function restoreConversation(entry) {
+            document.getElementById('code').value = entry.code;
+            document.getElementById('test_code').value = entry.testCode;
+            document.getElementById('output').innerText = `Restored from history at ${entry.timestamp}`;
+        }
+
+        function clearHistory() {
+            localStorage.removeItem('history'); // 移除存储的历史记录
+            loadHistory(); // 重新加载历史显示，现在应该为空
+        }
+
+
+        function restoreConversation(entry) {
+            document.getElementById('code').value = entry.code;
+            document.getElementById('test_code').value = entry.testCode;
+            document.getElementById('output').innerText = `Restored from history at ${entry.timestamp}`;
+        }
+
+        document.addEventListener("DOMContentLoaded", loadHistory);
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function autoDebug() {
+            const code = document.getElementById('code').value;
+            const test_code = document.getElementById('test_code').value;
+            const error_message = document.getElementById('output').textContent;
+            fetch('/code/auto_debug/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    code: code,
+                    test_code: test_code,
+                    error_message: error_message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('code').value = data.debugged_code;
+                document.getElementById('output').textContent = "Auto-Debug Completed";
+            })
+            .catch(error => {
+                console.error('Error during auto-debug:', error);
+                document.getElementById('output').textContent = 'Auto-Debug Failed';
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="sidebar">
+        <h1>History</h1>
+    </div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Submit Code and Test</h1>
+            <form method="post">
+                {% csrf_token %}
+                <label for="code">Code:</label>
+                <textarea id="code" name="code">{{ code|default:"" }}</textarea>
+                <label for="test_code">Test Code:</label>
+                <textarea id="test_code" name="test_code">{{ test_code|default:"" }}</textarea>
+                <div class="form-buttons">
+                    <input type="submit" value="Submit Code and Test">
+                    <button type="button" id="generateTestCodeButton">Generate Testing Code</button>
+                </div>
+            </form>
+            <div id="loading-indicator">Loading...</div> <!-- Loading indicator -->
+                <h2>Output Result:</h2>
+                <div id="output">{{ output|default:"" }}</div>
+                    {% if output_starts_with_failed %}
+                        <button type="button" onclick="autoDebug()">Auto-Debug</button>
+                    {% endif %}
+                    {% if output_starts_with_failed == 0 %}
+                    {% csrf_token %}
+                    <button onclick="saveToHistory()">Save to History</button>
+                    {% endif %}                 
+
+        </div>
+    </div>
+</body>
+</html>

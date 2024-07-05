@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Submit Code and Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to right, #f0f4f8, #ffffff);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            color: #333;
+        }
+        .sidebar {
+            background-color: #ffffff;
+            width: 300px;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            overflow-y: auto;
+            height: 100%;
+            box-sizing: border-box;
+        }
+        .main-content {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            overflow: auto;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 40px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 1300px;
+            transition: box-shadow 0.3s ease-in-out;
+        }
+        .container:hover {
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+        textarea {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid #ccd0d5;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 14px;
+            resize: vertical;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+            grid-column: span 2;
+        }
+        .form-buttons {
+            grid-column: span 2;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        input[type="submit"], button {
+            background-color: #1a73e8;
+            color: #ffffff;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+            flex: 1;
+        }
+        input[type="submit"]:hover, button:hover {
+            background-color: #155ab6;
+        }
+        #output {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ccd0d5;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+            font-family: monospace;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+        .conversation {
+            margin-top: 20px;
+            border-top: 1px solid #ccd0d5;
+            padding-top: 10px;
+        }
+        .conversation-date {
+            font-weight: bold;
+            color: #1a73e8;
+            margin-bottom: 10px;
+            padding-top: 10px;
+        }
+        .conversation-item {
+            margin-bottom: 10px;
+            padding: 10px;
+            border: 1px solid #ccd0d5;
+            border-radius: 5px;
+            background-color: #f1f1f1;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .conversation-item:hover {
+            background-color: #e1e1e1;
+        }
+        .conversation-item:last-child {
+            margin-bottom: 0;
+        }
+        #loading-indicator {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 24px;
+            color: #1a73e8;
+        }
+    </style>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            loadConversations();
+            document.getElementById('generateTestCodeButton').addEventListener('click', generateTestCode);
+        });
+
+        async function generateTestCode() {
+            const codeContent = document.getElementById('code').value;
+            if (!codeContent) {
+                alert('Please enter the code to test.');
+                return;
+            }
+
+            document.getElementById('loading-indicator').style.display = 'block';
+
+            const response = await fetch('/code/generate_test_code/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({code: codeContent})
+            });
+
+            document.getElementById('loading-indicator').style.display = 'none';
+
+            if (response.ok) {
+                const data = await response.json();
+                document.getElementById('test_code').value = data.test_code;
+                saveConversation('Generated Test Code', data.test_code);
+            } else {
+                const errorText = await response.text();
+                document.getElementById('output').innerText = 'Failed to generate test code: ' + errorText;
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+
+        function saveConversation(type, content) {
+            const now = new Date();
+            const timeStamp = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+            const conversation = { 
+                type, 
+                content, 
+                timestamp: timeStamp 
+            };
+            let conversations = JSON.parse(localStorage.getItem('conversations')) || [];
+            conversations.push(conversation);
+            if (conversations.length > 10) {
+                conversations.shift();
+            }
+            localStorage.setItem('conversations', JSON.stringify(conversations));
+            loadConversations();
+        }
+
+        function loadConversations() {
+            const conversations = JSON.parse(localStorage.getItem('conversations')) || [];
+            const conversationContainer = document.getElementById('conversation');
+            conversationContainer.innerHTML = '';
+
+            const groupedConversations = groupConversationsByDate(conversations);
+
+            for (const [date, items] of Object.entries(groupedConversations)) {
+                const dateHeader = document.createElement('div');
+                dateHeader.classList.add('conversation-date');
+                dateHeader.textContent = date;
+                conversationContainer.appendChild(dateHeader);
+
+                items.forEach((conversation, index) => {
+                    const div = document.createElement('div');
+                    div.classList.add('conversation-item');
+                    div.dataset.index = index;
+                    div.innerHTML = `<strong>${conversation.type}:</strong> ${truncateContent(conversation.content)} <br><small>${conversation.timestamp}</small>`;
+                    div.addEventListener('click', () => restoreConversation(conversation));
+                    conversationContainer.appendChild(div);
+                });
+            }
+        }
+
+        function groupConversationsByDate(conversations) {
+            return conversations.reduce((acc, conversation) => {
+                const date = new Date().toLocaleDateString();
+                if (!acc[date]) {
+                    acc[date] = [];
+                }
+                acc[date].push(conversation);
+                return acc;
+            }, {});
+        }
+
+        function truncateContent(content) {
+            const maxLength = 100;
+            return content.length > maxLength ? content.substring(0, maxLength) + '...' : content;
+        }
+
+        function restoreConversation(conversation) {
+            const [code, testCode] = conversation.content.split('\n\nTest Code:\n');
+            document.getElementById('code').value = code.replace('Code:\n', '');
+            document.getElementById('test_code').value = testCode || '';
+            document.getElementById('output').innerText = conversation.content;
+        }
+
+        async function handleSubmit(event) {
+            event.preventDefault();
+            const formData = new FormData(event.target);
+            const response = await fetch(event.target.action, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (response.ok) {
+                const data = await response.text();
+                document.getElementById('output').innerText = data;
+                saveConversation('Conversation', data);
+            } else {
+                document.getElementById('output').innerText = 'Failed to submit code and test.';
+            }
+        }
+
+        function autoDebug() {
+            const code = document.getElementById('code').value;
+            const test_code = document.getElementById('test_code').value;
+            const error_message = document.getElementById('output').textContent;
+
+            fetch('/code/auto_debug/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    code: code,
+                    test_code: test_code,
+                    error_message: error_message
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('code').value = data.debugged_code;
+                document.getElementById('output').textContent = "Auto-Debug Completed";
+            })
+            .catch(error => {
+                console.error('Error during auto-debug:', error);
+                document.getElementById('output').textContent = 'Auto-Debug Failed';
+            });
+        }
+    </script>
+</head>
+<body>
+    <div class="sidebar">
+        <h2>Conversation History</h2>
+        <div id="conversation" class="conversation"></div>
+    </div>
+    <div class="main-content">
+        <div class="container">
+            <h1>Code and Test Submission Form</h1>
+            <form method="post" onsubmit="handleSubmit(event)">
+                {% csrf_token %}
+                <label for="code">Code:</label>
+                <textarea id="code" name="code" rows="10" cols="50">{{ code|default:"" }}</textarea>
+                
+                <label for="test_code">Test Code:</label>
+                <textarea id="test_code" name="test_code" rows="10" cols="50">{{ test_code|default:"" }}</textarea>
+                
+                <div class="form-buttons">
+                    <input type="submit" value="Submit Code and Test">
+                    <button type="button" id="generateTestCodeButton">Generate Testing Code</button>
+                </div>
+            </form>
+
+            <h2>Output Result:</h2>
+            <div id="output">{{ output|default:"" }}</div>
+            <div id="loading-indicator">Loading...</div> <!-- Loading indicator -->
+
+            {% if output_starts_with_failed %}
+                <button type="button" onclick="autoDebug()">Auto-Debug</button>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>
